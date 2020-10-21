@@ -16,6 +16,7 @@ from motion_imitation.envs import env_builder
 from motion_imitation.robots import a1
 from motion_imitation.robots import laikago
 from motion_imitation.robots import robot_config
+from scipy.spatial.transform import Rotation
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum('robot_type', 'A1', ['A1', 'Laikago'], 'Robot Type.')
@@ -43,7 +44,7 @@ def main(_):
                                       on_rack=FLAGS.on_rack,
                                       wrap_trajectory_generator=False)
 
-  action_low, action_high = env.action_space.low, env.action_space.high
+  action_low, action_high = env.action_space.low/3., env.action_space.high/3.
   action_median = (action_low + action_high) / 2.
   dim_action = action_low.shape[0]
   action_selector_ids = []
@@ -54,15 +55,47 @@ def main(_):
                                                  startValue=action_median[dim])
     action_selector_ids.append(action_selector_id)
 
+  action_selector_id = p.addUserDebugParameter(paramName='height',
+                                               rangeMin=0,
+                                               rangeMax=2,
+                                               startValue=1)
+  action_selector_ids.append(action_selector_id)
+  action_selector_id = p.addUserDebugParameter(paramName='angle',
+                                               rangeMin=-3.14/2,
+                                               rangeMax=3.14/2,
+                                               startValue=0)
+  action_selector_ids.append(action_selector_id)
+  
+
   if FLAGS.video_dir:
     log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, FLAGS.video_dir)
 
-  for _ in tqdm(range(800)):
+  #for _ in tqdm(range(800)):
+  last_state_vec = []
+  while True:
+    state_vec = []
+    rot = Rotation.from_euler('zxy', [0,0,env.pybullet_client.readUserDebugParameter(
+          action_selector_ids[-1])])
+    base = Rotation.from_quat([0.5,0.5,0.5,0.5])
+    final_quat = (rot*base).as_quat()
+    final_pos = [0,0,env.pybullet_client.readUserDebugParameter(
+          action_selector_ids[-2])]
+    env.moveRack(final_pos, final_quat)
+
+    state_vec.extend(final_pos)
+    state_vec.extend(final_quat)
+
     action = np.zeros(dim_action)
     for dim in range(dim_action):
       action[dim] = env.pybullet_client.readUserDebugParameter(
           action_selector_ids[dim])
+      state_vec.append(action[dim])
     env.step(action)
+
+    if last_state_vec != state_vec:
+        print(state_vec)
+        last_state_vec = state_vec
+
 
   if FLAGS.video_dir:
     p.stopStateLogging(log_id)

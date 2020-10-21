@@ -271,6 +271,9 @@ class LocomotionGymEnv(gym.Env):
 
     return self._get_observation()
 
+  def moveRack(self, pos, rot):
+    self._robot.moveRack(pos, rot)
+
   def step(self, action):
     """Step forward the simulation, given the action.
 

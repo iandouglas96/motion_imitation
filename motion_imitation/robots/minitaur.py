@@ -398,6 +398,9 @@ class Minitaur(object):
     """
     return True
 
+  def moveRack(self, pos, rot):
+    self._pybullet_client.changeConstraint(self.rack_constraint, pos, rot)
+
   def Reset(self, reload_urdf=True, default_motor_angles=None, reset_time=3.0):
     """Reset the minitaur to its initial states.
 
