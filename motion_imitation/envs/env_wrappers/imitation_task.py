@@ -217,9 +217,9 @@ class ImitationTask(object):
   def done(self, env):
     """Checks if the episode is over."""
     del env
-    done = self._terminal_condition(self._env)
+    done, info = self._terminal_condition(self._env)
 
-    return done
+    return done, info
 
   def get_num_motions(self):
     """Get the number of reference motions to be imitated.

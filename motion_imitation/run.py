@@ -15,6 +15,7 @@
 
 import os
 import inspect
+from collections import defaultdict
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 os.sys.path.insert(0, parentdir)
@@ -85,7 +86,7 @@ def train(model, env, total_timesteps, output_dir="", int_save_freq=0):
     save_path = os.path.join(output_dir, "model.zip")
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
-  
+
 
   callbacks = []
   # Save a checkpoint every n steps
@@ -108,11 +109,13 @@ def test(model, env, num_procs, num_episodes=None):
     num_local_episodes = int(np.ceil(float(num_episodes) / num_procs))
   else:
     num_local_episodes = np.inf
-
+  episode_stats = defaultdict(list)
   o = env.reset()
   while episode_count < num_local_episodes:
     a, _ = model.predict(o, deterministic=True)
     o, r, done, info = env.step(a)
+    for k,v in info.items():
+      episode_stats[k].append(v)
     curr_return += r
 
     if done:
@@ -123,11 +126,17 @@ def test(model, env, num_procs, num_episodes=None):
   sum_return = MPI.COMM_WORLD.allreduce(sum_return, MPI.SUM)
   episode_count = MPI.COMM_WORLD.allreduce(episode_count, MPI.SUM)
 
+  mean_info = {}
+  for k, v in episode_stats.items():
+    mean_info[k] = MPI.COMM_WORLD.allreduce(sum(v), MPI.SUM) / episode_count
+
   mean_return = sum_return / episode_count
 
   if MPI.COMM_WORLD.Get_rank() == 0:
       print("Mean Return: " + str(mean_return))
       print("Episode Count: " + str(episode_count))
+      for k,v in mean_info.items():
+        print(f"Mean {k}: {v}")
 
   return
 
@@ -144,30 +153,30 @@ def main():
   arg_parser.add_argument("--int_save_freq", dest="int_save_freq", type=int, default=0) # save intermediate model every n policy steps
 
   args = arg_parser.parse_args()
-  
+
   num_procs = MPI.COMM_WORLD.Get_size()
   os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
-  
+
   enable_env_rand = ENABLE_ENV_RANDOMIZER and (args.mode != "test")
   env = env_builder.build_imitation_env(motion_files=[args.motion_file],
                                         num_parallel_envs=num_procs,
                                         mode=args.mode,
                                         enable_randomizer=enable_env_rand,
                                         enable_rendering=args.visualize)
-  
+
   model = build_model(env=env,
                       num_procs=num_procs,
                       timesteps_per_actorbatch=TIMESTEPS_PER_ACTORBATCH,
                       optim_batchsize=OPTIM_BATCHSIZE,
                       output_dir=args.output_dir)
 
-  
+
   if args.model_file != "":
     model.load_parameters(args.model_file)
 
   if args.mode == "train":
-      train(model=model, 
-            env=env, 
+      train(model=model,
+            env=env,
             total_timesteps=args.total_timesteps,
             output_dir=args.output_dir,
             int_save_freq=args.int_save_freq)

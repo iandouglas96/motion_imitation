@@ -40,6 +40,7 @@ def imitation_terminal_condition(env,
 
   Returns:
     A boolean indicating if episode is over.
+    Info dict containing failure types
   """
 
   pyb = env._pybullet_client
@@ -79,10 +80,10 @@ def imitation_terminal_condition(env,
   root_rot_diff_angle = motion_util.normalize_rotation_angle(
       root_rot_diff_angle)
   root_rot_fail = (np.abs(root_rot_diff_angle) > rot_fail_threshold)
-
+  info = {"motion_over": motion_over, "contact_fall": contact_fall, "root_pos_fail": root_pos_fail, "root_rot_fail": root_rot_fail}
   done = motion_over \
       or contact_fall \
       or root_pos_fail \
       or root_rot_fail
 
-  return done
+  return done, info
