@@ -131,7 +131,6 @@ def test(model, env, num_procs, num_episodes=None):
     mean_info[k] = MPI.COMM_WORLD.allreduce(sum(v), MPI.SUM) / episode_count
 
   mean_return = sum_return / episode_count
-
   if MPI.COMM_WORLD.Get_rank() == 0:
       print("Mean Return: " + str(mean_return))
       print("Episode Count: " + str(episode_count))

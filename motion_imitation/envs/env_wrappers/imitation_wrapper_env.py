@@ -68,7 +68,7 @@ class ImitationWrapperEnv(object):
       ValueError if input action is None.
 
     """
-    original_observation, reward, done, _ = self._gym_env.step(action)
+    original_observation, reward, done, done_info = self._gym_env.step(action)
     observation = self._modify_observation(original_observation)
     terminated = done
 
@@ -78,7 +78,7 @@ class ImitationWrapperEnv(object):
       self._total_step_count += 1
 
     info = {"terminated": terminated}
-
+    info.update(done_info)
     return observation, reward, done, info
 
   def reset(self, initial_motor_angles=None, reset_duration=0.0):
@@ -102,7 +102,7 @@ class ImitationWrapperEnv(object):
       self._update_time_limit()
 
     return observation
-  
+
   def _modify_observation(self, original_observation):
     """Appends target observations from the reference motion to the observations.
 
